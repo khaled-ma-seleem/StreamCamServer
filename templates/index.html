@@ -1,14 +1,67 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Camera Stream</title>
-    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
-    <script src="{{ url_for('static', filename='script.js') }}" defer></script>
-
+    <title>Video Stream</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        .video-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            margin: 20px;
+        }
+        h1 {
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
-    <video id="video" width="640" height="480" autoplay></video>
+    <h1>Video Stream with Text Overlay</h1>
+    
+    <div class="video-container">
+        <!-- Hidden video and canvas elements for capture -->
+        <video id="video" style="display: none;" width="640" height="480" autoplay></video>
+        <canvas id="canvas" style="display: none;"></canvas>
+        
+        <!-- Only show the processed frame -->
+        <img id="processed-image" width="640" height="480">
+    </div>
+
+    <script>
+        const socket = io();
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const processedImage = document.getElementById('processed-image');
+
+        // Access webcam
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+                canvas.width = video.width;
+                canvas.height = video.height;
+                
+                // Start sending frames
+                setInterval(sendFrame, 100);  // Adjust interval as needed
+            })
+            .catch(err => console.error('Error accessing webcam:', err));
+
+        function sendFrame() {
+            // Draw current video frame to canvas
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Get frame data as base64
+            const frameData = canvas.toDataURL('image/jpeg');
+            
+            // Send frame to server
+            socket.emit('video_frame', frameData);
+        }
+
+        // Receive processed frame from server
+        socket.on('processed_frame', function(frameData) {
+            processedImage.src = frameData;
+        });
+    </script>
 </body>
 </html>
